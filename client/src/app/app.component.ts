@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import {Diagram}
+import { DiagramComponent } from './components/diagram/diagram.component';
 
 @Component({
   selector: 'app-root',
