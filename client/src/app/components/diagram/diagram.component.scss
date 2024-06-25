@@ -1,0 +1,65 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  background-color: #f8f9fa;
+  padding: 10px;
+  text-align: center;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+}
+
+.left-panel {
+  width: 250px;
+  background-color: #e9ecef;
+  padding: 10px;
+}
+
+.diagram-editor {
+  flex: 1;
+  background-color: #dee2e6;
+  position: relative;
+}
+
+#diagramCanvas {
+  width: 100%;
+  height: 100%;
+}
+
+.floating-menu {
+  position: absolute;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.element-menu {
+  left: 10px;
+  top: 10px;
+}
+
+.zoom-menu {
+  right: 10px;
+  bottom: 10px;
+}
+
+.draggable-item {
+  padding: 8px;
+  margin: 5px;
+  background-color: #ffffff;
+  border: 1px solid #cccccc;
+  cursor: pointer;
+
+  &.active {
+    background-color: #f0f0f0;
+  }
+}

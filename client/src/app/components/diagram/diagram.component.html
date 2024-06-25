@@ -1,3 +1,45 @@
-<button (click)="addSquare()">Square</button>
+<div class="layout">
+  <div class="main">
+    <div class="left-panel">
+      <!-- Left Panel Content -->
+      <div class="header">Diagram header</div>
+      <div>Left Panel Content Here</div>
+    </div>
+    <main class="diagram-editor">
+      <!-- Floating Menu -->
+      <div class="floating-menu element-menu">
+        <button
+          (click)="onSelectItem(elementType.square)"
+          [ngClass]="{'active': currentlySelectedNewElement === elementType.square}"
+          class="draggable-item">
+          Drag Square
+        </button>
+        <button
+          (click)="onSelectNothing()"
+          class="draggable-item">
+          None
+        </button>
+      </div>
+      <div class="floating-menu zoom-menu">
+        <button
+          (click)="onZoomIn()"
+          class="draggable-item">
+          +
+        </button>
+        <button
+          (click)="onZoomOut()"
+          class="draggable-item">
+          -
+        </button>
+      </div>
 
-<canvas #diagramCanvas></canvas>
+      <!-- Diagram Canvas -->
+      <canvas #diagramCanvas
+              (mousedown)="onCanvasMouseDown($event)"
+              (mouseleave)="onMouseLeave()"
+              (mousemove)="onCanvasMouseMove($event)"
+              (mouseup)="onCanvasMouseUp($event)"
+              id="diagramCanvas"></canvas>
+    </main>
+  </div>
+</div>
