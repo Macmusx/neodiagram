@@ -9,15 +9,20 @@
       <!-- Floating Menu -->
       <div class="floating-menu element-menu">
         <button
-          (click)="onSelectItem(elementType.square)"
-          [ngClass]="{'active': currentlySelectedNewElement === elementType.square}"
-          class="draggable-item">
-          Drag Square
-        </button>
-        <button
           (click)="onSelectNothing()"
           class="draggable-item">
           None
+        </button>
+        <button
+          (click)="onSelectItem(elementType.square)"
+          [ngClass]="{'active': currentlySelectedNewElement === elementType.square}"
+          class="draggable-item">
+          Square
+        </button>
+        <button
+          (click)="onReset()"
+          class="draggable-item">
+          Reset
         </button>
       </div>
       <div class="floating-menu zoom-menu">
@@ -33,12 +38,11 @@
         </button>
       </div>
 
-      <!-- Diagram Canvas -->
       <canvas #diagramCanvas
               (mousedown)="onCanvasMouseDown($event)"
               (mouseleave)="onMouseLeave()"
               (mousemove)="onCanvasMouseMove($event)"
-              (mouseup)="onCanvasMouseUp($event)"
+              (mouseup)="onCanvasMouseUp()"
               id="diagramCanvas"></canvas>
     </main>
   </div>
