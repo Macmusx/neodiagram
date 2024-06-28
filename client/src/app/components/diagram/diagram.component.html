@@ -14,8 +14,8 @@
           None
         </button>
         <button
-          (click)="onSelectItem(elementType.square)"
-          [ngClass]="{'active': currentlySelectedNewElement === elementType.square}"
+          (click)="onSelectItem('square')"
+          [ngClass]="{'active': diagram.getSelectedItemString()}"
           class="draggable-item">
           Square
         </button>

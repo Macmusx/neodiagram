@@ -1,8 +1,8 @@
 import {AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild} from '@angular/core';
 import {NgClass} from "@angular/common";
 
-export const ElementType = {
-  square: 'square',
+export enum ElementType {
+  SQUARE = 'square'
 }
 
 export type DiagramElement = {
@@ -14,7 +14,9 @@ export type DiagramElement = {
 
 export enum STATE {
   IDLE,
-  DRAG
+  DRAG,
+  ELEMENT_SELECTED,
+  CREATE_DESIGNED_ELEMENT,
 }
 
 export class Diagram {
@@ -22,6 +24,8 @@ export class Diagram {
     x: 0,
     y: 0
   }
+  selectedElement: ElementType | null = null;
+  currentlyCreatingElement: DiagramElement | undefined;
   private zoomLevel = 4;
   private elements: DiagramElement[] = [];
   private topLeftCoordinatesMapping = {
@@ -135,6 +139,60 @@ export class Diagram {
         }
         this.redraw();
         break;
+      case STATE.CREATE_DESIGNED_ELEMENT:
+        this.currentlyCreatingElement = {
+          x: this.originalMousePosition.x,
+          y: this.originalMousePosition.y,
+          width: event.layerX * this.zoomLevel - (this.originalMousePosition.x || 0) - this.topLeftCoordinatesMapping.x,
+          height: event.layerY * this.zoomLevel - (this.originalMousePosition.y || 0) - this.topLeftCoordinatesMapping.y
+        }
+        this.redraw();
+    }
+  }
+
+  onMouseDown(pointerEvent: PointerEvent) {
+    switch (this.state) {
+      case STATE.IDLE:
+        return this.onDragEnter(pointerEvent);
+      case STATE.ELEMENT_SELECTED:
+        this.onEnterCreateDesignedElementState(pointerEvent);
+    }
+  }
+
+  onSelectItem(elementType: ElementType | null) {
+    this.selectedElement = elementType;
+    if (!elementType) {
+      this.state = STATE.IDLE;
+      return;
+    }
+    this.state = STATE.ELEMENT_SELECTED;
+  }
+
+  getSelectedItemString(): string {
+    return this.selectedElement as string;
+  }
+
+  onMouseUp() {
+    switch (this.state) {
+      case STATE.DRAG:
+        this.onEnterIdleState();
+        break;
+      case STATE.ELEMENT_SELECTED:
+        break;
+      case STATE.CREATE_DESIGNED_ELEMENT:
+        this.state = STATE.ELEMENT_SELECTED;
+        if (!this.currentlyCreatingElement) break;
+        this.elements.push(this.currentlyCreatingElement);
+        this.currentlyCreatingElement = undefined;
+        break;
+    }
+  }
+
+  private onEnterCreateDesignedElementState(event: PointerEvent) {
+    this.state = STATE.CREATE_DESIGNED_ELEMENT;
+    this.originalMousePosition = {
+      x: event.layerX * this.zoomLevel - this.topLeftCoordinatesMapping.x,
+      y: event.layerY * this.zoomLevel - this.topLeftCoordinatesMapping.y
     }
   }
 
@@ -144,6 +202,7 @@ export class Diagram {
 
   private drawElements() {
     this.elements.forEach(element => this.drawElement(element));
+    if (this.currentlyCreatingElement) this.drawElement(this.currentlyCreatingElement);
   }
 
   private setCanvasResolution() {
@@ -217,11 +276,14 @@ export class DiagramComponent implements AfterViewInit, OnInit {
   }
 
   onSelectItem(text: string) {
-    this.currentlySelectedNewElement = text;
+    switch (text) {
+      case 'square':
+        return this.diagram.onSelectItem(ElementType.SQUARE);
+    }
   }
 
   onSelectNothing() {
-    this.currentlySelectedNewElement = undefined;
+    this.diagram.onSelectItem(null);
   }
 
   // drawSquare(x: number, y: number) {
@@ -257,7 +319,7 @@ export class DiagramComponent implements AfterViewInit, OnInit {
 
   onCanvasMouseDown(event: MouseEvent) {
     const pointerEvent = event as PointerEvent;
-    if (event.ctrlKey) this.diagram.onDragEnter(pointerEvent);
+    this.diagram.onMouseDown(pointerEvent);
   }
 
   onCanvasMouseMove(event: MouseEvent) {
@@ -265,11 +327,12 @@ export class DiagramComponent implements AfterViewInit, OnInit {
   }
 
   onCanvasMouseUp() {
-    this.diagram.onEnterIdleState();
+    this.diagram.onMouseUp();
   }
 
   onMouseLeave() {
-    this.diagram.onEnterIdleState();
+    // TODO rethink
+    // this.diagram.onEnterIdleState();
   }
 
   onZoomIn() {
