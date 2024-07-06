@@ -3,26 +3,55 @@
     <div class="left-panel">
       <!-- Left Panel Content -->
       <div class="header">Diagram header</div>
-      <div>Left Panel Content Here</div>
+      <div>
+        Current state
+        {{ diagram.state }}
+
+        <hr />
+
+        Current mode
+        {{ diagram.selectedMode }}
+
+        <hr />
+
+        Currently selected element
+        {{ diagram.currentlySelectedElement | json }}
+
+        <hr />
+        <hr />
+        <hr />
+
+        @if (diagram.currentlySelectedElement) {
+          Element Settings
+
+          <br />
+
+          BorderRadius: <input
+            (input)="updateSelectedElementBorderRadius($event)" type="number"
+            [value]="diagram.currentlySelectedElement.radius" />
+        }
+      </div>
     </div>
     <main class="diagram-editor">
       <!-- Floating Menu -->
       <div class="floating-menu element-menu">
         <button
-          (click)="onSelectNothing()"
+          (click)="onSelectMode(MODE.MOVE)"
+          [ngClass]="{'active': diagram.getSelectedMode() === MODE.MOVE}"
           class="draggable-item">
-          None
+          Move
         </button>
         <button
-          (click)="onSelectItem('square')"
-          [ngClass]="{'active': diagram.getSelectedItemString()}"
+          (click)="onSelectMode(MODE.SELECT)"
+          [ngClass]="{'active': diagram.getSelectedMode() === MODE.SELECT}"
+          class="draggable-item">
+          Select
+        </button>
+        <button
+          (click)="onSelectMode(MODE.SQUARE)"
+          [ngClass]="{'active': diagram.getSelectedMode() === MODE.SQUARE}"
           class="draggable-item">
           Square
-        </button>
-        <button
-          (click)="onReset()"
-          class="draggable-item">
-          Reset
         </button>
       </div>
       <div class="floating-menu zoom-menu">

@@ -1,5 +1,5 @@
 import {AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild} from '@angular/core';
-import {NgClass} from "@angular/common";
+import {JsonPipe, NgClass} from "@angular/common";
 
 export enum ElementType {
   SQUARE = 'square'
@@ -9,14 +9,23 @@ export type DiagramElement = {
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  selected: boolean,
+  radius?: number
 }
 
 export enum STATE {
-  IDLE,
-  DRAG,
-  ELEMENT_SELECTED,
-  CREATE_DESIGNED_ELEMENT,
+  IDLE = 'idle',
+  DRAG = 'drag',
+  ITEM_SELECTED = 'item-selected',
+  CREATE_DESIGNED_ELEMENT = 'create-designed-element',
+  SELECT_READY = 'select-ready'
+}
+
+export enum MODE {
+  MOVE = 'move',
+  SELECT = 'select',
+  SQUARE = 'square'
 }
 
 export class Diagram {
@@ -26,13 +35,15 @@ export class Diagram {
   }
   selectedElement: ElementType | null = null;
   currentlyCreatingElement: DiagramElement | undefined;
+  selectedMode: MODE = MODE.MOVE;
+  currentlySelectedElement: DiagramElement | undefined;
+  state = STATE.IDLE;
   private zoomLevel = 4;
   private elements: DiagramElement[] = [];
   private topLeftCoordinatesMapping = {
     x: 0,
     y: 0
   }
-  private state = STATE.IDLE;
 
   private _originalHeight: number | undefined;
 
@@ -65,8 +76,51 @@ export class Diagram {
     const x = element.x + this.topLeftCoordinatesMapping.x;
     const y = element.y + this.topLeftCoordinatesMapping.y;
     if (context) {
-      context.fillStyle = 'blue';
-      context.fillRect(x, y, element.width, element.height);
+      let r = x + element.width;
+      let b = y + element.height;
+      const radius = element.radius || 0;
+
+      context.beginPath();
+      context.strokeStyle = "blue";
+      context.fillStyle = "blue";
+      context.lineWidth = 4;
+      context.moveTo(x + radius, y);
+      context.lineTo(r - radius, y);
+      context.quadraticCurveTo(r, y, r, y + radius);
+      context.lineTo(r, y + element.height - radius);
+      context.quadraticCurveTo(r, b, r - radius, b);
+      context.lineTo(x + radius, b);
+      context.quadraticCurveTo(x, b, x, b - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.stroke();
+      context.fill();
+
+      if (element.selected) {
+        // make small squares on the corners
+
+        context.fillStyle = 'red';
+        context.fillRect(x - 12.5, y - 12.5, 25, 25);
+        context.fillRect(x + element.width - 12.5, y - 12.5, 25, 25);
+        context.fillRect(x - 12.5, y + element.height - 12.5, 25, 25);
+        context.fillRect(x + element.width - 12.5, y + element.height - 12.5, 25, 25);
+
+        // make border
+
+        context.strokeStyle = 'red';
+        context.lineWidth = 4;
+        context.strokeRect(x, y, element.width, element.height);
+      }
+    }
+  }
+
+  updateSelectedElement(values: any) {
+    if (!this.currentlySelectedElement) return;
+
+    if (values.borderRadius) {
+      this.currentlySelectedElement.radius = values.borderRadius;
+      this.redraw();
+
     }
   }
 
@@ -144,7 +198,8 @@ export class Diagram {
           x: this.originalMousePosition.x,
           y: this.originalMousePosition.y,
           width: event.layerX * this.zoomLevel - (this.originalMousePosition.x || 0) - this.topLeftCoordinatesMapping.x,
-          height: event.layerY * this.zoomLevel - (this.originalMousePosition.y || 0) - this.topLeftCoordinatesMapping.y
+          height: event.layerY * this.zoomLevel - (this.originalMousePosition.y || 0) - this.topLeftCoordinatesMapping.y,
+          selected: false
         }
         this.redraw();
     }
@@ -154,8 +209,10 @@ export class Diagram {
     switch (this.state) {
       case STATE.IDLE:
         return this.onDragEnter(pointerEvent);
-      case STATE.ELEMENT_SELECTED:
-        this.onEnterCreateDesignedElementState(pointerEvent);
+      case STATE.ITEM_SELECTED:
+        return this.onEnterCreateDesignedElementState(pointerEvent);
+      case STATE.SELECT_READY:
+        this.onSelectElement(pointerEvent)
     }
   }
 
@@ -165,11 +222,7 @@ export class Diagram {
       this.state = STATE.IDLE;
       return;
     }
-    this.state = STATE.ELEMENT_SELECTED;
-  }
-
-  getSelectedItemString(): string {
-    return this.selectedElement as string;
+    this.state = STATE.ITEM_SELECTED;
   }
 
   onMouseUp() {
@@ -177,15 +230,52 @@ export class Diagram {
       case STATE.DRAG:
         this.onEnterIdleState();
         break;
-      case STATE.ELEMENT_SELECTED:
+      case STATE.ITEM_SELECTED:
         break;
       case STATE.CREATE_DESIGNED_ELEMENT:
-        this.state = STATE.ELEMENT_SELECTED;
+        this.state = STATE.ITEM_SELECTED;
         if (!this.currentlyCreatingElement) break;
+
+        if (this.currentlyCreatingElement.width < 0) {
+          this.currentlyCreatingElement.width = -this.currentlyCreatingElement.width;
+          this.currentlyCreatingElement.x = this.currentlyCreatingElement.x - this.currentlyCreatingElement.width;
+        }
+
+        if (this.currentlyCreatingElement.height < 0) {
+          this.currentlyCreatingElement.height = -this.currentlyCreatingElement.height;
+          this.currentlyCreatingElement.y = this.currentlyCreatingElement.y - this.currentlyCreatingElement.height;
+        }
+
         this.elements.push(this.currentlyCreatingElement);
+        this.onElementSelected(this.currentlyCreatingElement);
+
+        this.state = STATE.SELECT_READY;
+        this.selectedMode = MODE.SELECT;
+
         this.currentlyCreatingElement = undefined;
+
         break;
     }
+  }
+
+  onSelectMode(mode: MODE) {
+    if (this.selectedMode === mode) return;
+    this.selectedMode = mode;
+    switch (mode) {
+      case MODE.MOVE:
+        this.state = STATE.IDLE;
+        break;
+      case MODE.SELECT:
+        this.state = STATE.SELECT_READY;
+        break;
+      case MODE.SQUARE:
+        this.onSelectItem(ElementType.SQUARE);
+        break;
+    }
+  }
+
+  getSelectedMode(): MODE {
+    return this.selectedMode;
   }
 
   private onEnterCreateDesignedElementState(event: PointerEvent) {
@@ -215,20 +305,50 @@ export class Diagram {
 
     this.redraw();
   }
+
+  private onSelectElement(event: PointerEvent) {
+    this.onDeselectSelectedElement();
+    const x = event.layerX * this.zoomLevel - this.topLeftCoordinatesMapping.x;
+    const y = event.layerY * this.zoomLevel - this.topLeftCoordinatesMapping.y;
+
+    const element = this.elements.find(element =>
+      element.x < x && element.x + element.width > x
+      &&
+      element.y < y && element.y + element.height > y
+    );
+    if (element) this.onElementSelected(element);
+    if (!element) this.redraw();
+  }
+
+
+  private onDeselectSelectedElement() {
+    if (this.currentlySelectedElement) {
+      this.currentlySelectedElement.selected = false;
+      this.currentlySelectedElement = undefined;
+    }
+  }
+
+  private onElementSelected(element: DiagramElement) {
+    this.onDeselectSelectedElement();
+    element.selected = true;
+    this.currentlySelectedElement = element;
+    // this.state = STATE.ITEM_SELECTED;
+    this.redraw();
+  }
 }
 
 @Component({
   selector: 'app-diagram',
   standalone: true,
   imports: [
-    NgClass
+    NgClass,
+    JsonPipe
   ],
   templateUrl: './diagram.component.html',
   styleUrl: './diagram.component.scss'
 })
 export class DiagramComponent implements AfterViewInit, OnInit {
-  currentlySelectedNewElement: string | undefined;
-  elementType = ElementType;
+  protected readonly MODE = MODE;
 
   private _diagram = new Diagram();
 
@@ -271,21 +391,6 @@ export class DiagramComponent implements AfterViewInit, OnInit {
     }
   }
 
-  ngAfterViewInit(): void {
-    this.diagram.originalHeight = this.diagram.nativeElement.parentElement?.clientHeight;
-  }
-
-  onSelectItem(text: string) {
-    switch (text) {
-      case 'square':
-        return this.diagram.onSelectItem(ElementType.SQUARE);
-    }
-  }
-
-  onSelectNothing() {
-    this.diagram.onSelectItem(null);
-  }
-
   // drawSquare(x: number, y: number) {
   //   const rectSize = 200; // Square size
   //
@@ -301,6 +406,10 @@ export class DiagramComponent implements AfterViewInit, OnInit {
   //     });
   //   }
   // }
+
+  ngAfterViewInit(): void {
+    this.diagram.originalHeight = this.diagram.nativeElement.parentElement?.clientHeight;
+  }
 
   onCanvasClick(event: MouseEvent) {
     //   if (this.currentlySelectedNewElement) {
@@ -347,13 +456,12 @@ export class DiagramComponent implements AfterViewInit, OnInit {
     // this.setCanvasResolution();
   }
 
-  onReset() {
-    // localStorage.removeItem('elements');
-    // this.elements = [];
-    // this.redrawCanvas();
+  onSelectMode(mode: MODE) {
+    this.diagram.onSelectMode(mode);
   }
 
-  private onSave() {
-    // localStorage.setItem('elements', JSON.stringify(this.elements));
+  updateSelectedElementBorderRadius(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    this.diagram.updateSelectedElement({borderRadius: parseInt(value, 10)});
   }
 }
